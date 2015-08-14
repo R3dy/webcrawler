@@ -2,8 +2,8 @@ class Crawler
 
   def initialize(opts)
     # Initialize method when a new crawler is created
-    @opts = opts
-    @opts[:errors] = {
+    @@opts = opts
+    @@opts[:errors] = {
       invaliduri: "ERROR: nil value specified for URL",
       type: "ERROR: not a valid URL",
       socket: "ERROR: unable to connect to URL",
@@ -14,23 +14,20 @@ class Crawler
 
   def opts
     # Simply returns the crawlers options hash
-    @opts
+    @@opts
   end
 
   def crawl
     # main method, calls 'process_url' on every URL in the queue
     opts[:url_queue].push check(opts[:base_url])
-    opts[:url_queue].push check("https://www.phishingfrenzy.com")
-    opts[:url_queue].push check("https://www.pentestgeek.com/category/web-applications")
-    opts[:url_queue].push check("https://www.pentestgeek.com/category/phishing")
-    opts[:url_queue].push check("https://www.pentestgeek.com/category/metasploit")
-    while opts[:url_queue].size > 0
-      opts[:threads].process { process_url(opts[:url_queue].pop) }
+    opts[:url_queue].each do |url|
+      process_url(url)
     end
     print_crawl_stats
   end
 
   def process_url(url)
+    return if url.size > 200
     # calls 'request' on a URL and adds it to the already crawled array
     # calls 'get_links' on the page returned by 'request' and extracts
     # all the links and then sends each link to 'queuelink' unless 
