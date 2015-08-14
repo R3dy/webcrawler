@@ -29,8 +29,8 @@ require 'optparse'
 args = OptionParser.new do |opts|
   opts.banner = "./webcrawler.rb -h [host] -p [port]\r\n\r\n"
   opts.on("-t", "--target [Website]", "Website to crawl i.e www.site.com") { |target| @options[:target] = target }
+  opts.on("-d", "--debug", "Enabled full debug mode, lots of output") { |d| @options[:debug] = true }
   opts.on("-v", "--verbose", "Enables verbose output\r\n\r\n") { |v| @options[:verbose] = true }
-  opts.on("-d", "--debug", "Enabled full debug mode, lots of output\r\n\r\n") { |d| @options[:debug] = true }
 end
 args.parse!(ARGV)
 
