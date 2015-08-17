@@ -12,6 +12,11 @@ class Crawler
     }
   end
 
+  def print_crawl_stats
+    # prints statistics about the crawler
+    puts "Crawled #{opts[:urls_crawled].count} pages.\n#{opts[:url_queue].count} pages in queue."
+  end
+
   def opts
     # Simply returns the crawlers options hash
     @@opts
@@ -21,7 +26,9 @@ class Crawler
     # main method, calls 'process_url' on every URL in the queue
     opts[:url_queue].push check(opts[:base_url])
     opts[:url_queue].each do |url|
-      process_url(url)
+      page = process_url(url)
+      opts[:urls_crawled].push page.url
+      opts[:pages].push page
     end
     print_crawl_stats
   end
@@ -35,10 +42,10 @@ class Crawler
     puts "Processing #{url}" if opts[:args][:verbose]
     page = Nokogiri::HTML(request_page(url))
     unless bad_page(page.text)
-      parse_page(page, url)
-      get_links(url,page.css('a')).each { |link|  queue_link(link)}
+      page_hash = parse_page(page, url)
+      page = Page.new(page_hash) if page_hash
     end
-    opts[:urls_crawled].push url
+    return page
   end
 
   private
@@ -50,14 +57,12 @@ class Crawler
     begin
       uri = URI.parse(url)
       response = Net::HTTP.get_response(uri)
-      #binding.pry
       if response.code == "301"
-        puts "Got HTTP response code #{response.code}" if opts[:args][:debug]
+        puts "HTTP response code #{response.code}" if opts[:args][:debug]
         uri = URI.parse(response.header['location'])
         response = Net::HTTP.get_response(uri)
       end
       if response.code == "200" && response.header['content-type'] == "text/html"
-        puts "Making HTTP request and returning the page" if opts[:args][:debug]
         return response.body
       end
       puts "Not requesting #{url}" if opts[:args][:debug]
@@ -101,7 +106,9 @@ class Crawler
     # extracts acctuall content (not code) from a page and performs normilizaiton
     # on all the words to determine the top 10 terms on a particular page
     begin
+      get_links(url,page.css('a')).each { |link|  queue_link(link)}
       words = Array.new
+      page_hash = Hash.new
       page.search('//text()').map(&:text).each do |chunk|
         chunk.split(' ').each { |word|
           word = good_word(word.downcase)
@@ -110,8 +117,10 @@ class Crawler
       end
       words.delete_if { |x| hassymbols(x) }
       word_count = count_words(words)
-      key_words = word_count.sort_by { |word, count| count }[-20..-1].reverse
-      meta_description = page.xpath("//meta[@name='description']/@content").text
+      page_hash[:key_words] = word_count.sort_by { |word, count| count }[-20..-1].reverse
+      page_hash[:meta_description] = page.xpath("//meta[@name='description']/@content").text
+      page_hash[:url] = url
+      return page_hash
     rescue StandardError => msg
       return
     end
@@ -141,7 +150,7 @@ class Crawler
   end
 
   def stop_word(word)
-    # checks for a basic list of stopwords to ignore every time, a more comprehensive
+    # checks for a basic list of stop_words to ignore every time, a more comprehensive
     # list will be added in later to really speed things up
     stop_words = [ "the", "and", "about", "are", "com", "for", "see",
       "from", "how", "that", "this", "was", "what", "you", "which",
@@ -239,16 +248,12 @@ class Crawler
   end
 
   def dont_follow(link)
-    extentions = [ 'jpg', 'jpeg', 'pdf', 'gif', 'js', 'png', 'docx', 'zip' ]
+    extentions = [ 'jpg', 'jpeg', 'pdf', 'gif', 'js', 'png', 'docx', 'zip', 'doc', 
+    'docx', 'xls', 'xlsx', 'txt', 'bmp' ]
     if extentions.include?(link.split('.')[-1].downcase)
       return true
     end
     return false
-  end
-
-  def print_crawl_stats
-    # prints statistics about the crawler
-    puts "Crawled #{opts[:urls_crawled].count} pages.\n#{opts[:url_queue].count} pages in queue."
   end
 
 end

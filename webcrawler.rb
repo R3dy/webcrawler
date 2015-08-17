@@ -20,6 +20,7 @@ $:.unshift( File.join(APP_ROOT, 'lib'))
 require 'net/https'
 require 'optparse'
 require 'crawler'
+require 'page'
 require 'pry'
 require 'nokogiri'
 require 'thread/pool'
@@ -40,10 +41,15 @@ opts = {
   user_agent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_3) AppleWebKit/537.36 (KHTML, like Gecko)',
   url_queue: Array.new,
   urls_crawled: Array.new,
+  pages: Array.new,
   threads: Thread.pool(5),
   args: @options
 }
 
 # initialize the crawler and let it loose
-crawler = Crawler.new(opts)
-crawler.crawl
+begin
+  crawler = Crawler.new(opts)
+  crawler.crawl
+rescue SystemExit, Interrupt
+  crawler.print_crawl_stats
+end
