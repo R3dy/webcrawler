@@ -1,7 +1,7 @@
 # Webcrawler.rb
 
 This is purely an educational tool for practicing web crawling.  It
-doesn't do anything very useful as is.
+doesn't do anything very useful as is.  Script will run infinitly or until you Ctrl+C.
 
 ## Install
 ~~~
