@@ -33,23 +33,24 @@ class Crawler
     # all the links and then sends each link to 'queuelink' unless 
     # 'badpage' returns true
     puts "Processing #{url}" if opts[:args][:verbose]
-    page = Nokogiri::HTML(request(url))
-    opts[:urls_crawled].push url
-    unless badpage(page.text)
-      parsepage(page, url)
-      get_links(url,page.css('a')).each { |link|  queuelink(link)}
+    page = Nokogiri::HTML(request_page(url))
+    unless bad_page(page.text)
+      parse_page(page, url)
+      get_links(url,page.css('a')).each { |link|  queue_link(link)}
     end
+    opts[:urls_crawled].push url
   end
 
   private
   # These methods should never be called outside of this Class
 
-  def request(url)
+  def request_page(url)
     # Primary HTTP requestor method, folows redirects and 
     # passes exceptions to 'errors' it always returns something
     begin
       uri = URI.parse(url)
       response = Net::HTTP.get_response(uri)
+      #binding.pry
       if response.code == "301"
         puts "Got HTTP response code #{response.code}" if opts[:args][:debug]
         uri = URI.parse(response.header['location'])
@@ -57,7 +58,7 @@ class Crawler
       end
       if response.code == "200" && response.header['content-type'] == "text/html"
         puts "Making HTTP request and returning the page" if opts[:args][:debug]
-        return Net::HTTP.get(uri)
+        return response.body
       end
       puts "Not requesting #{url}" if opts[:args][:debug]
     rescue StandardError => msg
@@ -82,7 +83,7 @@ class Crawler
     end
   end
 
-  def badpage(text)
+  def bad_page(text)
     # checks a page.text for an error message
     opts[:errors].each do |key, value|
       if text == value
@@ -96,13 +97,12 @@ class Crawler
     return false
   end
 
-  def parsepage(page, url)
+  def parse_page(page, url)
     # extracts acctuall content (not code) from a page and performs normilizaiton
     # on all the words to determine the top 10 terms on a particular page
     begin
       words = Array.new
-      chunks = page.search('//text()').map(&:text)
-      chunks.each do |chunk|
+      page.search('//text()').map(&:text).each do |chunk|
         chunk.split(' ').each { |word|
           word = good_word(word.downcase)
           words << word if word 
@@ -111,8 +111,8 @@ class Crawler
       words.delete_if { |x| hassymbols(x) }
       word_count = count_words(words)
       key_words = word_count.sort_by { |word, count| count }[-20..-1].reverse
+      meta_description = page.xpath("//meta[@name='description']/@content").text
     rescue StandardError => msg
-      puts errors(msg)
       return
     end
   end
@@ -122,7 +122,7 @@ class Crawler
     # if it is
     if word.size < 4 || word.size > 30
       return nil
-    elsif stopword(word)
+    elsif stop_word(word)
       return nil
     else
       return just_the_word(word)
@@ -140,17 +140,17 @@ class Crawler
     return word
   end
 
-  def stopword(word)
+  def stop_word(word)
     # checks for a basic list of stopwords to ignore every time, a more comprehensive
     # list will be added in later to really speed things up
-    stopwords = [ "the", "and", "about", "are", "com", "for", "see",
+    stop_words = [ "the", "and", "about", "are", "com", "for", "see",
       "from", "how", "that", "this", "was", "what", "you", "which",
       "when", "where", "who", "will", "with", "www", "out", "use",
       "all", "have", "more", "only", "your", "part", "been", "any",
       "now", "those", "div", "span", "new", "trn", "divn", "var", 
       "function", "like", "not", "get", "some", "posted", "can", 
       "there", "very", "their", "else", "has" ]
-    return true if stopwords.include? word
+    return true if stop_words.include? word
   end
 
   def hassymbols(word)
@@ -187,7 +187,7 @@ class Crawler
         next
       elsif link[0] == '/'
         link = root_url(url,link)
-      elsif relativepath(link)
+      elsif relative_path(link)
         link = url + link
       end
       clean << check(link)
@@ -200,7 +200,7 @@ class Crawler
     return url.split('/')[0..2].join('/') + link
   end
 
-  def relativepath(link)
+  def relative_path(link)
     # handles links that don't lead off with a / for example
     # 'viewcontent.php'
     case link.split('/')[0]
@@ -224,21 +224,21 @@ class Crawler
     return link
   end
 
-  def queuelink(link)
+  def queue_link(link)
     # Adds a URL to 'opts[:url_queue]' as long as it wasn't already crawled and isn't
     # already in the queue
     if opts[:urls_crawled].include? link
       return
     elsif opts[:url_queue].include? link
       return
-    elsif notapage(link)
+    elsif dont_follow(link)
       return
     else
       opts[:url_queue].push link
     end
   end
 
-  def notapage(link)
+  def dont_follow(link)
     extentions = [ 'jpg', 'jpeg', 'pdf', 'gif', 'js', 'png', 'docx', 'zip' ]
     if extentions.include?(link.split('.')[-1].downcase)
       return true
