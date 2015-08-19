@@ -104,6 +104,7 @@ class Crawler
         page_hash[:key_words] = word_count.sort_by { |word, count| count }[-20..-1].reverse
         page_hash[:meta_description] = page.xpath("//meta[@name='description']/@content").text
         page_hash[:url] = url
+        binding.pry
         return page_hash
       rescue StandardError => msg
         return
@@ -129,7 +130,7 @@ class Crawler
       # if it is
       if word.size < 4 || word.size > 30
         return nil
-      elsif stop_word(word)
+      elsif stop_word(just_the_word(word))
         return nil
       else
         return just_the_word(word)
@@ -138,12 +139,8 @@ class Crawler
 
     def just_the_word(word)
       # removes simple punctuation from the end of a word
-      punctuation = ['.', ',', '?', '!', ':', ';']
-      if punctuation.include? word[-1]
-        word = word[0..-2]
-      elsif punctuation.include? word[0]
-        word = word[1..-1]
-      end
+      punctuation = ['.', ',', '?', '!', ':', ';', '\'', '’']
+      punctuation.each { |x| word.gsub!(x, '') }
       return word
     end
 
@@ -156,8 +153,15 @@ class Crawler
         "all", "have", "more", "only", "your", "part", "been", "any",
         "now", "those", "div", "span", "new", "trn", "divn", "var", 
         "function", "like", "not", "get", "some", "posted", "can", 
-        "there", "very", "their", "else", "has" ]
+        "there", "very", "their", "else", "has", "january", "february", 
+        "march", "april", "may", "june", "july", "august", "september", 
+        "october", "november", "december", "than", "here", "were", "these", 
+        "next", "they", "would", "know", "could", "while", "also", "every", 
+        "dont", "back", "should", "good", "its", "since", "youre", "using", 
+        "your", "over", "entire", "just", "each", "ever", "along", "going", 
+        "really", "come", "lets" ]
       return true if stop_words.include? word
+      return true if word.to_i > 0
     end
 
     def hassymbols(word)
